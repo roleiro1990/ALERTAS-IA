@@ -1,10 +1,11 @@
 import requests
 import time
 
-TOKEN = "8533776481:AAHqhKG0-_h9b72-C5_u0axWB2FMyS303bU"
-CHAT_ID = "-1003878283858"
-API_KEY = "10fa424736e645fb0e706b1aa3406f5b"
+import os
 
+TOKEN = os.getenv("TOKEN")
+CHAT_ID = os.getenv("CHAT_ID_FREE")
+API_KEY = os.getenv("API_KEY")
 API_BASE = "https://v3.football.api-sports.io"
 
 alertas_enviadas = set()
@@ -249,11 +250,16 @@ def revisar_partidos():
     primera_vuelta = False
 
 
-while True:
-    try:
-        revisar_partidos()
-    except Exception as e:
-        print("ERROR:", e)
+def main():
+    while True:
+        try:
+            revisar_partidos()
+        except Exception as e:
+            print("ERROR FREE:", e)
 
-    print("ESPERANDO 30 SEGUNDOS...\n")
-    time.sleep(30)
+        print("FREE ESPERANDO 30 SEGUNDOS...\n")
+        time.sleep(30)
+
+
+if __name__ == "__main__":
+    main()
