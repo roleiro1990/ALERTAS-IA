@@ -258,7 +258,7 @@ def main():
             print("ERROR FREE:", e)
 
         print("FREE ESPERANDO 30 SEGUNDOS...\n")
-        time.sleep(90)
+        time.sleep(120)
 
 
 if __name__ == "__main__":
