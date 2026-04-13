@@ -488,7 +488,7 @@ def main():
             print("ERROR PREMIUM:", e)
 
         print("PREMIUM ESPERANDO 30 SEGUNDOS...\n")
-        time.sleep(60)
+        time.sleep(999999)
 
 
 if __name__ == "__main__":
