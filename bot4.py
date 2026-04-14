@@ -8,25 +8,24 @@ API_KEY = os.getenv("API_KEY")
 
 API_BASE = "https://v3.football.api-sports.io"
 
-alertas_enviadas = set()
+alertas_eventos = set()
 alertas_tarjetas = set()
 alertas_tarjetas_bajas = set()
 alertas_tarjetas_equipo = set()
 alertas_corners = set()
 alertas_remates = set()
 alertas_remates_totales_altos = set()
-alertas_1t_enviadas = set()
 
 primera_vuelta_eventos = True
-primera_vuelta_1t = True
+primera_vuelta_mercados = True
 
 LIGA_PENALES_PERMITIDA = "Torneo Federal A"
 
 ULTIMA_REVISION_EVENTOS = 0
-ULTIMA_REVISION_1T = 0
+ULTIMA_REVISION_MERCADOS = 0
 
-INTERVALO_EVENTOS = 60
-INTERVALO_1T = 120
+INTERVALO_EVENTOS = 30
+INTERVALO_MERCADOS = 60
 
 
 def bandera_pais(pais):
@@ -278,6 +277,10 @@ def contar_corners_eventos_primer_tiempo(eventos):
     return total
 
 
+def en_ventana_primer_tiempo(status):
+    return status in ["1H", "HT"]
+
+
 def revisar_eventos_vivo():
     global primera_vuelta_eventos
 
@@ -303,11 +306,11 @@ def revisar_eventos_vivo():
 
             clave = f"{fixture_id}-{minuto_evento}-{equipo_evento}-{tipo}-{detalle}"
 
-            if clave in alertas_enviadas:
+            if clave in alertas_eventos:
                 continue
 
             if primera_vuelta_eventos:
-                alertas_enviadas.add(clave)
+                alertas_eventos.add(clave)
                 continue
 
             if es_penal(evento) and liga_penal_permitida(liga):
@@ -319,7 +322,7 @@ def revisar_eventos_vivo():
                     f"⚽ {equipo_evento}"
                 )
                 enviar_mensaje(mensaje)
-                alertas_enviadas.add(clave)
+                alertas_eventos.add(clave)
 
             elif es_roja(evento):
                 titulo_expulsion, rango_expulsion = tipo_expulsion(minuto_evento)
@@ -333,16 +336,16 @@ def revisar_eventos_vivo():
                     f"⚽ {goles_local}-{goles_visitante}"
                 )
                 enviar_mensaje(mensaje)
-                alertas_enviadas.add(clave)
+                alertas_eventos.add(clave)
 
             else:
-                alertas_enviadas.add(clave)
+                alertas_eventos.add(clave)
 
     primera_vuelta_eventos = False
 
 
 def revisar_mercados_1t():
-    global primera_vuelta_1t
+    global primera_vuelta_mercados
 
     partidos = obtener_partidos_en_vivo()
 
@@ -357,18 +360,11 @@ def revisar_mercados_1t():
         bandera = bandera_pais(pais)
 
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
-        minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
-        if fixture_id in alertas_1t_enviadas:
+        if not en_ventana_primer_tiempo(estado_corto):
             continue
 
-        if primera_vuelta_1t:
-            continue
-
-        if estado_corto not in ["HT", "2H"]:
-            continue
-
-        if estado_corto == "2H" and minuto_actual > 55:
+        if primera_vuelta_mercados:
             continue
 
         eventos = obtener_eventos(fixture_id)
@@ -404,13 +400,13 @@ def revisar_mercados_1t():
                     f"<b>🔥 PARTIDO CALIENTE 🔥</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
                     f"📊 Tarjetas: {total_tarjetas}"
                 )
                 enviar_mensaje(mensaje)
                 alertas_tarjetas.add(clave)
 
-        if total_tarjetas == 0 and liga_tarjetas_permitida(liga, pais):
+        if total_tarjetas == 0 and estado_corto == "HT" and liga_tarjetas_permitida(liga, pais):
             clave = f"{fixture_id}-tarjetas-bajas"
             if clave not in alertas_tarjetas_bajas:
                 mensaje = (
@@ -431,7 +427,7 @@ def revisar_mercados_1t():
                         f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
                         f"{liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                        f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
                         f"🟨 {home}: {tarjetas_home}"
                     )
                     enviar_mensaje(mensaje)
@@ -444,7 +440,7 @@ def revisar_mercados_1t():
                         f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
                         f"{liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                        f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
                         f"🟨 {away}: {tarjetas_away}"
                     )
                     enviar_mensaje(mensaje)
@@ -457,7 +453,7 @@ def revisar_mercados_1t():
                     f"<b>🚩 PARTIDO DINÁMICO 🚩</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
                     f"📊 Córners: {total_corners}"
                 )
                 enviar_mensaje(mensaje)
@@ -482,7 +478,7 @@ def revisar_mercados_1t():
                     f"{chr(10).join(lineas_ritmo)}\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
                     f"{chr(10).join(lineas_estadisticas)}"
                 )
                 enviar_mensaje(mensaje)
@@ -496,7 +492,7 @@ def revisar_mercados_1t():
                     f"⏱ Remate cada 3 minutos o menos\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
                     f"🔴 {home}: {remates_home}\n"
                     f"🔵 {away}: {remates_away}\n"
                     f"📊 Total: {total_remates}"
@@ -504,13 +500,11 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_remates_totales_altos.add(clave)
 
-        alertas_1t_enviadas.add(fixture_id)
-
-    primera_vuelta_1t = False
+    primera_vuelta_mercados = False
 
 
 def revisar_partidos():
-    global ULTIMA_REVISION_EVENTOS, ULTIMA_REVISION_1T
+    global ULTIMA_REVISION_EVENTOS, ULTIMA_REVISION_MERCADOS
 
     while True:
         try:
@@ -520,14 +514,14 @@ def revisar_partidos():
                 revisar_eventos_vivo()
                 ULTIMA_REVISION_EVENTOS = ahora
 
-            if ahora - ULTIMA_REVISION_1T >= INTERVALO_1T:
+            if ahora - ULTIMA_REVISION_MERCADOS >= INTERVALO_MERCADOS:
                 revisar_mercados_1t()
-                ULTIMA_REVISION_1T = ahora
+                ULTIMA_REVISION_MERCADOS = ahora
 
         except Exception as e:
             print("ERROR BOT4:", e)
             time.sleep(10)
             continue
 
-        print("BOT4 ACTIVO | EVENTOS: 60s | 1T: 120s\n")
+        print("BOT4 ACTIVO | EVENTOS: 30s | MERCADOS 1T: 60s\n")
         time.sleep(5)
