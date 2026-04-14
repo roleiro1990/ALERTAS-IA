@@ -282,6 +282,45 @@ def en_ventana_primer_tiempo(partido):
     return estado in ["1H", "HT"]
 
 
+def log_stats_partido(
+    fixture_id,
+    liga,
+    pais,
+    home,
+    away,
+    estado_corto,
+    minuto_actual,
+    total_tarjetas,
+    tarjetas_home,
+    tarjetas_away,
+    corners_eventos,
+    corners_stats,
+    total_corners,
+    remates_home,
+    remates_away,
+    total_remates,
+    stats_len,
+):
+    print(
+        "DEBUG 1T | "
+        f"fixture={fixture_id} | "
+        f"liga={liga} ({pais}) | "
+        f"partido={home} vs {away} | "
+        f"estado={estado_corto} | "
+        f"min={minuto_actual} | "
+        f"stats_items={stats_len} | "
+        f"tarjetas_total={total_tarjetas} | "
+        f"tarjetas_home={tarjetas_home} | "
+        f"tarjetas_away={tarjetas_away} | "
+        f"corners_eventos={corners_eventos} | "
+        f"corners_stats={corners_stats} | "
+        f"corners_total={total_corners} | "
+        f"remates_home={remates_home} | "
+        f"remates_away={remates_away} | "
+        f"remates_total={total_remates}"
+    )
+
+
 def revisar_eventos_vivo():
     global primera_vuelta_eventos
 
@@ -350,6 +389,9 @@ def revisar_mercados_1t():
 
     partidos = obtener_partidos_en_vivo()
 
+    evaluados = 0
+    sin_stats = 0
+
     for partido in partidos:
         if not en_ventana_primer_tiempo(partido):
             continue
@@ -366,7 +408,13 @@ def revisar_mercados_1t():
         minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
         if primera_vuelta_mercados:
+            print(
+                f"DEBUG SKIP PRIMERA VUELTA | fixture={fixture_id} | {home} vs {away} | "
+                f"estado={estado_corto} | min={minuto_actual}"
+            )
             continue
+
+        evaluados += 1
 
         eventos = obtener_eventos(fixture_id)
 
@@ -383,16 +431,43 @@ def revisar_mercados_1t():
         corners_stats = 0
 
         if len(estadisticas) >= 2:
-            home_stats = estadisticas[0]["statistics"]
-            away_stats = estadisticas[1]["statistics"]
+            home_stats = estadisticas[0].get("statistics", [])
+            away_stats = estadisticas[1].get("statistics", [])
 
             remates_home = obtener_remates(home_stats)
             remates_away = obtener_remates(away_stats)
             total_remates = remates_home + remates_away
             corners_stats = obtener_corners_stats(home_stats, away_stats)
+        else:
+            sin_stats += 1
+            print(
+                f"DEBUG STATS VACIAS | fixture={fixture_id} | {home} vs {away} | "
+                f"liga={liga} ({pais}) | estado={estado_corto} | min={minuto_actual} | "
+                f"items_stats={len(estadisticas)}"
+            )
 
         total_corners = max(corners_eventos, corners_stats)
         etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
+
+        log_stats_partido(
+            fixture_id=fixture_id,
+            liga=liga,
+            pais=pais,
+            home=home,
+            away=away,
+            estado_corto=estado_corto,
+            minuto_actual=minuto_actual,
+            total_tarjetas=total_tarjetas,
+            tarjetas_home=tarjetas_home,
+            tarjetas_away=tarjetas_away,
+            corners_eventos=corners_eventos,
+            corners_stats=corners_stats,
+            total_corners=total_corners,
+            remates_home=remates_home,
+            remates_away=remates_away,
+            total_remates=total_remates,
+            stats_len=len(estadisticas),
+        )
 
         if total_tarjetas >= 4 and liga_tarjetas_permitida(liga, pais):
             clave = f"{fixture_id}-tarjetas-altas"
@@ -500,6 +575,10 @@ def revisar_mercados_1t():
                 )
                 enviar_mensaje(mensaje)
                 alertas_remates_totales_altos.add(clave)
+
+    print(
+        f"DEBUG RESUMEN 1T | evaluados={evaluados} | sin_stats={sin_stats}"
+    )
 
     primera_vuelta_mercados = False
 
