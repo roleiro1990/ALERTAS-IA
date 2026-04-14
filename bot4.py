@@ -363,8 +363,6 @@ def revisar_mercados_1t():
             continue
 
         if primera_vuelta_1t:
-            if estado_corto in ["HT", "2H"]:
-                alertas_1t_enviadas.add(fixture_id)
             continue
 
         if estado_corto not in ["HT", "2H"]:
