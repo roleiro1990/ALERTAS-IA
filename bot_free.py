@@ -1,18 +1,25 @@
 import requests
 import time
-
 import os
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID_FREE")
 API_KEY = os.getenv("API_KEY")
+
 API_BASE = "https://v3.football.api-sports.io"
 
 alertas_enviadas = set()
 alertas_remates_totales_altos = set()
 alertas_1t_enviadas = set()
 
-primera_vuelta = True
+primera_vuelta_eventos = True
+primera_vuelta_1t = True
+
+ULTIMA_REVISION_EVENTOS = 0
+ULTIMA_REVISION_1T = 0
+
+INTERVALO_EVENTOS = 60
+INTERVALO_1T = 300
 
 
 def bandera_pais(pais):
@@ -160,8 +167,8 @@ def es_roja(evento):
     )
 
 
-def revisar_partidos():
-    global primera_vuelta
+def revisar_eventos_vivo():
+    global primera_vuelta_eventos
 
     partidos = obtener_partidos_en_vivo()
 
@@ -175,11 +182,8 @@ def revisar_partidos():
         pais = partido["league"]["country"]
         bandera = bandera_pais(pais)
 
-        estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
-
         eventos = obtener_eventos(fixture_id)
 
-        # EVENTOS EN VIVO -> SOLO EXPULSIONES
         for evento in eventos:
             minuto_evento = evento.get("time", {}).get("elapsed", 0)
             equipo_evento = evento.get("team", {}).get("name", "Equipo")
@@ -191,7 +195,7 @@ def revisar_partidos():
             if clave in alertas_enviadas:
                 continue
 
-            if primera_vuelta:
+            if primera_vuelta_eventos:
                 alertas_enviadas.add(clave)
                 continue
 
@@ -212,54 +216,84 @@ def revisar_partidos():
             else:
                 alertas_enviadas.add(clave)
 
-        # ALERTAS DEL 1T -> SOLO REMATES TOTALES ALTOS, AHORA EN HT
-        if estado_corto == "HT" and fixture_id not in alertas_1t_enviadas and not primera_vuelta:
-            estadisticas = obtener_estadisticas(fixture_id)
+    primera_vuelta_eventos = False
 
-            remates_home = 0
-            remates_away = 0
-            total_remates = 0
 
-            if len(estadisticas) >= 2:
-                home_stats = estadisticas[0]["statistics"]
-                away_stats = estadisticas[1]["statistics"]
+def revisar_mercado_1t():
+    global primera_vuelta_1t
 
-                remates_home = obtener_remates(home_stats)
-                remates_away = obtener_remates(away_stats)
-                total_remates = remates_home + remates_away
+    partidos = obtener_partidos_en_vivo()
 
-            if total_remates >= 15:
-                clave = f"{fixture_id}-remates-totales-altos"
-                if clave not in alertas_remates_totales_altos:
-                    mensaje = (
-                        f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
-                        f"⏱ Remate cada 3 minutos o menos\n\n"
-                        f"{liga} ({pais}) {bandera}\n"
-                        f"{home} vs {away}\n\n"
-                        f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
-                        f"🔴 {home}: {remates_home}\n"
-                        f"🔵 {away}: {remates_away}\n"
-                        f"📊 Total: {total_remates}"
-                    )
-                    enviar_mensaje(mensaje)
-                    alertas_remates_totales_altos.add(clave)
+    for partido in partidos:
+        fixture_id = partido["fixture"]["id"]
+        home = partido["teams"]["home"]["name"]
+        away = partido["teams"]["away"]["name"]
+        goles_local = partido["goals"]["home"]
+        goles_visitante = partido["goals"]["away"]
+        liga = partido["league"]["name"]
+        pais = partido["league"]["country"]
+        bandera = bandera_pais(pais)
+        estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
 
-            # Marcar que ya se revisó el 1T de este partido
+        if estado_corto != "HT":
+            continue
+
+        if fixture_id in alertas_1t_enviadas:
+            continue
+
+        if primera_vuelta_1t:
             alertas_1t_enviadas.add(fixture_id)
+            continue
 
-    primera_vuelta = False
+        estadisticas = obtener_estadisticas(fixture_id)
+
+        remates_home = 0
+        remates_away = 0
+        total_remates = 0
+
+        if len(estadisticas) >= 2:
+            home_stats = estadisticas[0]["statistics"]
+            away_stats = estadisticas[1]["statistics"]
+
+            remates_home = obtener_remates(home_stats)
+            remates_away = obtener_remates(away_stats)
+            total_remates = remates_home + remates_away
+
+        if total_remates >= 15:
+            clave = f"{fixture_id}-remates-totales-altos"
+            if clave not in alertas_remates_totales_altos:
+                mensaje = (
+                    f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
+                    f"⏱ Remate cada 3 minutos o menos\n\n"
+                    f"{liga} ({pais}) {bandera}\n"
+                    f"{home} vs {away}\n\n"
+                    f"⏱ 1T Finalizado | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"🔴 {home}: {remates_home}\n"
+                    f"🔵 {away}: {remates_away}\n"
+                    f"📊 Total: {total_remates}"
+                )
+                enviar_mensaje(mensaje)
+                alertas_remates_totales_altos.add(clave)
+
+        alertas_1t_enviadas.add(fixture_id)
+
+    primera_vuelta_1t = False
 
 
-def main():
-    while True:
-        try:
-            revisar_partidos()
-        except Exception as e:
-            print("ERROR FREE:", e)
+while True:
+    try:
+        ahora = time.time()
 
-        print("FREE ESPERANDO 30 SEGUNDOS...\n")
-        time.sleep(999999)
+        if ahora - ULTIMA_REVISION_EVENTOS >= INTERVALO_EVENTOS:
+            revisar_eventos_vivo()
+            ULTIMA_REVISION_EVENTOS = ahora
 
+        if ahora - ULTIMA_REVISION_1T >= INTERVALO_1T:
+            revisar_mercado_1t()
+            ULTIMA_REVISION_1T = ahora
 
-if __name__ == "__main__":
-    main()
+    except Exception as e:
+        print("ERROR:", e)
+
+    print("BOT FREE ACTIVO | EXPULSIONES: 60s | REMATES 1T: 300s\n")
+    time.sleep(5)
