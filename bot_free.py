@@ -280,20 +280,25 @@ def revisar_mercado_1t():
     primera_vuelta_1t = False
 
 
-while True:
-    try:
-        ahora = time.time()
+def revisar_partidos():
+    global ULTIMA_REVISION_EVENTOS, ULTIMA_REVISION_1T
 
-        if ahora - ULTIMA_REVISION_EVENTOS >= INTERVALO_EVENTOS:
-            revisar_eventos_vivo()
-            ULTIMA_REVISION_EVENTOS = ahora
+    while True:
+        try:
+            ahora = time.time()
 
-        if ahora - ULTIMA_REVISION_1T >= INTERVALO_1T:
-            revisar_mercado_1t()
-            ULTIMA_REVISION_1T = ahora
+            if ahora - ULTIMA_REVISION_EVENTOS >= INTERVALO_EVENTOS:
+                revisar_eventos_vivo()
+                ULTIMA_REVISION_EVENTOS = ahora
 
-    except Exception as e:
-        print("ERROR:", e)
+            if ahora - ULTIMA_REVISION_1T >= INTERVALO_1T:
+                revisar_mercado_1t()
+                ULTIMA_REVISION_1T = ahora
 
-    print("BOT FREE ACTIVO | EXPULSIONES: 60s | REMATES 1T: 300s\n")
-    time.sleep(5)
+        except Exception as e:
+            print("ERROR BOT_FREE:", e)
+            time.sleep(10)
+            continue
+
+        print("BOT FREE ACTIVO | EXPULSIONES: 60s | REMATES 1T: 300s\n")
+        time.sleep(5)
