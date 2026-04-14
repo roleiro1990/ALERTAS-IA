@@ -19,7 +19,7 @@ ULTIMA_REVISION_EVENTOS = 0
 ULTIMA_REVISION_1T = 0
 
 INTERVALO_EVENTOS = 60
-INTERVALO_1T = 300
+INTERVALO_1T = 120
 
 
 def bandera_pais(pais):
@@ -233,16 +233,22 @@ def revisar_mercado_1t():
         liga = partido["league"]["name"]
         pais = partido["league"]["country"]
         bandera = bandera_pais(pais)
-        estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
 
-        if estado_corto != "HT":
-            continue
+        estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
+        minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
         if fixture_id in alertas_1t_enviadas:
             continue
 
         if primera_vuelta_1t:
-            alertas_1t_enviadas.add(fixture_id)
+            if estado_corto in ["HT", "2H"]:
+                alertas_1t_enviadas.add(fixture_id)
+            continue
+
+        if estado_corto not in ["HT", "2H"]:
+            continue
+
+        if estado_corto == "2H" and minuto_actual > 55:
             continue
 
         estadisticas = obtener_estadisticas(fixture_id)
@@ -300,5 +306,5 @@ def revisar_partidos():
             time.sleep(10)
             continue
 
-        print("BOT FREE ACTIVO | EXPULSIONES: 60s | REMATES 1T: 300s\n")
+        print("BOT FREE ACTIVO | EXPULSIONES: 60s | REMATES 1T: 120s\n")
         time.sleep(5)
