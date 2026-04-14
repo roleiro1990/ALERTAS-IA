@@ -389,6 +389,11 @@ def revisar_mercados_1t():
 
     partidos = obtener_partidos_en_vivo()
 
+    if primera_vuelta_mercados:
+        primera_vuelta_mercados = False
+        print("PRIMERA VUELTA MERCADOS OK")
+        return
+
     evaluados = 0
     sin_stats = 0
 
@@ -406,13 +411,6 @@ def revisar_mercados_1t():
         bandera = bandera_pais(pais)
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
         minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
-
-        if primera_vuelta_mercados:
-            print(
-                f"DEBUG SKIP PRIMERA VUELTA | fixture={fixture_id} | {home} vs {away} | "
-                f"estado={estado_corto} | min={minuto_actual}"
-            )
-            continue
 
         evaluados += 1
 
@@ -579,8 +577,6 @@ def revisar_mercados_1t():
     print(
         f"DEBUG RESUMEN 1T | evaluados={evaluados} | sin_stats={sin_stats}"
     )
-
-    primera_vuelta_mercados = False
 
 
 def revisar_partidos():
