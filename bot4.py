@@ -277,8 +277,9 @@ def contar_corners_eventos_primer_tiempo(eventos):
     return total
 
 
-def en_ventana_primer_tiempo(status):
-    return status in ["1H", "HT"]
+def en_ventana_primer_tiempo(partido):
+    estado = partido.get("fixture", {}).get("status", {}).get("short", "")
+    return estado in ["1H", "HT"]
 
 
 def revisar_eventos_vivo():
@@ -350,6 +351,9 @@ def revisar_mercados_1t():
     partidos = obtener_partidos_en_vivo()
 
     for partido in partidos:
+        if not en_ventana_primer_tiempo(partido):
+            continue
+
         fixture_id = partido["fixture"]["id"]
         home = partido["teams"]["home"]["name"]
         away = partido["teams"]["away"]["name"]
@@ -358,11 +362,8 @@ def revisar_mercados_1t():
         liga = partido["league"]["name"]
         pais = partido["league"]["country"]
         bandera = bandera_pais(pais)
-
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
-
-        if not en_ventana_primer_tiempo(estado_corto):
-            continue
+        minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
         if primera_vuelta_mercados:
             continue
@@ -388,10 +389,10 @@ def revisar_mercados_1t():
             remates_home = obtener_remates(home_stats)
             remates_away = obtener_remates(away_stats)
             total_remates = remates_home + remates_away
-
             corners_stats = obtener_corners_stats(home_stats, away_stats)
 
         total_corners = max(corners_eventos, corners_stats)
+        etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
 
         if total_tarjetas >= 4 and liga_tarjetas_permitida(liga, pais):
             clave = f"{fixture_id}-tarjetas-altas"
@@ -400,7 +401,7 @@ def revisar_mercados_1t():
                     f"<b>🔥 PARTIDO CALIENTE 🔥</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
                     f"📊 Tarjetas: {total_tarjetas}"
                 )
                 enviar_mensaje(mensaje)
@@ -427,7 +428,7 @@ def revisar_mercados_1t():
                         f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
                         f"{liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
+                        f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
                         f"🟨 {home}: {tarjetas_home}"
                     )
                     enviar_mensaje(mensaje)
@@ -440,7 +441,7 @@ def revisar_mercados_1t():
                         f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
                         f"{liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
+                        f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
                         f"🟨 {away}: {tarjetas_away}"
                     )
                     enviar_mensaje(mensaje)
@@ -453,7 +454,7 @@ def revisar_mercados_1t():
                     f"<b>🚩 PARTIDO DINÁMICO 🚩</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
                     f"📊 Córners: {total_corners}"
                 )
                 enviar_mensaje(mensaje)
@@ -478,7 +479,7 @@ def revisar_mercados_1t():
                     f"{chr(10).join(lineas_ritmo)}\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
                     f"{chr(10).join(lineas_estadisticas)}"
                 )
                 enviar_mensaje(mensaje)
@@ -492,7 +493,7 @@ def revisar_mercados_1t():
                     f"⏱ Remate cada 3 minutos o menos\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ 1T | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
                     f"🔴 {home}: {remates_home}\n"
                     f"🔵 {away}: {remates_away}\n"
                     f"📊 Total: {total_remates}"
