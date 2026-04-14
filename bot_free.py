@@ -166,9 +166,9 @@ def es_roja(evento):
     )
 
 
-def es_primer_tiempo_o_ht(partido):
-    estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
-    return estado_corto in ["1H", "HT"]
+def en_ventana_primer_tiempo(partido):
+    estado = partido.get("fixture", {}).get("status", {}).get("short", "")
+    return estado in ["1H", "HT"]
 
 
 def revisar_eventos_vivo():
@@ -229,7 +229,7 @@ def revisar_mercado_1t():
     partidos = obtener_partidos_en_vivo()
 
     for partido in partidos:
-        if not es_primer_tiempo_o_ht(partido):
+        if not en_ventana_primer_tiempo(partido):
             continue
 
         fixture_id = partido["fixture"]["id"]
