@@ -393,7 +393,6 @@ def revisar_mercados_1t():
 
         total_corners = max(corners_eventos, corners_stats)
 
-        # 🔥 PARTIDO CALIENTE 🔥
         if total_tarjetas >= 4 and liga_tarjetas_permitida(liga, pais):
             clave = f"{fixture_id}-tarjetas-altas"
             if clave not in alertas_tarjetas:
@@ -407,7 +406,6 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_tarjetas.add(clave)
 
-        # 📉 PARTIDO SIN FRICCIÓN
         if total_tarjetas == 0 and liga_tarjetas_permitida(liga, pais):
             clave = f"{fixture_id}-tarjetas-bajas"
             if clave not in alertas_tarjetas_bajas:
@@ -421,7 +419,6 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_tarjetas_bajas.add(clave)
 
-        # 🟨 EXCESO DE TARJETAS
         if not liga_tarjetas_permitida(liga, pais):
             if tarjetas_home >= 4:
                 clave = f"{fixture_id}-tarjetas-equipo-{home}"
@@ -449,7 +446,6 @@ def revisar_mercados_1t():
                     enviar_mensaje(mensaje)
                     alertas_tarjetas_equipo.add(clave)
 
-        # 🚩 PARTIDO DINÁMICO 🚩
         if total_corners >= 7:
             clave = f"{fixture_id}-corners-altos"
             if clave not in alertas_corners:
@@ -463,7 +459,6 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_corners.add(clave)
 
-        # 🥅 EXCESO DE REMATES 🥅
         if remates_home >= 9 or remates_away >= 9:
             clave = f"{fixture_id}-remates-equipo"
             if clave not in alertas_remates:
@@ -489,7 +484,6 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_remates.add(clave)
 
-        # 🥅 VOLUMEN ALTO DE REMATES 🥅
         if total_remates >= 15:
             clave = f"{fixture_id}-remates-totales-altos"
             if clave not in alertas_remates_totales_altos:
@@ -527,9 +521,9 @@ def revisar_partidos():
                 ULTIMA_REVISION_1T = ahora
 
         except Exception as e:
-            print("ERROR:", e)
+            print("ERROR BOT4:", e)
+            time.sleep(10)
+            continue
 
         print("BOT4 ACTIVO | EVENTOS: 60s | 1T: 300s\n")
         time.sleep(5)
-
-
