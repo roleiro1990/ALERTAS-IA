@@ -71,20 +71,6 @@ def bandera_pais(pais):
     return "".join(chr(127397 + ord(c)) for c in codigo)
 
 
-def tipo_expulsion(minuto):
-    try:
-        minuto = int(minuto)
-    except (TypeError, ValueError):
-        return "EXPULSIÓN", ""
-
-    if minuto <= 30:
-        return "EXPULSIÓN TEMPRANA", "1–30 min"
-    elif minuto <= 69:
-        return "EXPULSIÓN MEDIA", "31–69 min"
-    else:
-        return "EXPULSIÓN TARDÍA", "70+ min"
-
-
 def enviar_mensaje(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     data = {
@@ -168,7 +154,8 @@ def es_roja(evento):
 
 def en_ventana_primer_tiempo(partido):
     estado = partido.get("fixture", {}).get("status", {}).get("short", "")
-    return estado in ["1H", "HT"]
+    minuto = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
+    return estado in ["1H", "HT"] or (estado == "2H" and minuto <= 46)
 
 
 def revisar_eventos_vivo():
@@ -204,14 +191,11 @@ def revisar_eventos_vivo():
                 continue
 
             if es_roja(evento):
-                titulo_expulsion, rango_expulsion = tipo_expulsion(minuto_evento)
-
                 mensaje = (
-                    f"<b>🟥 {titulo_expulsion} ({rango_expulsion})</b>\n\n"
+                    f"<b>🟥 EXPULSADO MINUTO {minuto_evento}</b>\n\n"
                     f"🔴 {equipo_evento}\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ Min {minuto_evento}\n"
                     f"⚽ {goles_local}-{goles_visitante}"
                 )
                 enviar_mensaje(mensaje)
@@ -228,6 +212,10 @@ def revisar_mercado_1t():
 
     partidos = obtener_partidos_en_vivo()
 
+    if primera_vuelta_mercados:
+        primera_vuelta_mercados = False
+        return
+
     for partido in partidos:
         if not en_ventana_primer_tiempo(partido):
             continue
@@ -242,9 +230,6 @@ def revisar_mercado_1t():
         bandera = bandera_pais(pais)
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
         minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
-
-        if primera_vuelta_mercados:
-            continue
 
         estadisticas = obtener_estadisticas(fixture_id)
 
@@ -267,7 +252,7 @@ def revisar_mercado_1t():
 
                 mensaje = (
                     f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
-                    f"⏱ Remate cada 3 minutos o menos\n\n"
+                    f"⏱ <b>REMATES CADA 3 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
@@ -277,8 +262,6 @@ def revisar_mercado_1t():
                 )
                 enviar_mensaje(mensaje)
                 alertas_remates_totales_altos.add(clave)
-
-    primera_vuelta_mercados = False
 
 
 def revisar_partidos():
