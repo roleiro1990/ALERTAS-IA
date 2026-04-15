@@ -78,20 +78,6 @@ def bandera_pais(pais):
     return "".join(chr(127397 + ord(c)) for c in codigo)
 
 
-def tipo_expulsion(minuto):
-    try:
-        minuto = int(minuto)
-    except (TypeError, ValueError):
-        return "EXPULSIÓN", ""
-
-    if minuto <= 30:
-        return "EXPULSIÓN TEMPRANA", "1–30 min"
-    elif minuto <= 69:
-        return "EXPULSIÓN MEDIA", "31–69 min"
-    else:
-        return "EXPULSIÓN TARDÍA", "70+ min"
-
-
 def enviar_mensaje(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     data = {
@@ -279,7 +265,8 @@ def contar_corners_eventos_primer_tiempo(eventos):
 
 def en_ventana_primer_tiempo(partido):
     estado = partido.get("fixture", {}).get("status", {}).get("short", "")
-    return estado in ["1H", "HT"]
+    minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
+    return estado in ["1H", "HT"] or (estado == "2H" and minuto_actual <= 46)
 
 
 def log_stats_partido(
@@ -365,14 +352,11 @@ def revisar_eventos_vivo():
                 alertas_eventos.add(clave)
 
             elif es_roja(evento):
-                titulo_expulsion, rango_expulsion = tipo_expulsion(minuto_evento)
-
                 mensaje = (
-                    f"<b>🟥 {titulo_expulsion} ({rango_expulsion})</b>\n\n"
+                    f"<b>🟥 EXPULSADO MINUTO {minuto_evento}</b>\n\n"
                     f"🔴 {equipo_evento}\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ Min {minuto_evento}\n"
                     f"⚽ {goles_local}-{goles_visitante}"
                 )
                 enviar_mensaje(mensaje)
@@ -540,11 +524,15 @@ def revisar_mercados_1t():
                 lineas_estadisticas = []
 
                 if remates_home >= 9:
-                    lineas_ritmo.append(f"⏱ {home} remata cada 5 minutos o menos")
+                    lineas_ritmo.append(
+                        f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                    )
                     lineas_estadisticas.append(f"🔴 {home}: {remates_home}")
 
                 if remates_away >= 9:
-                    lineas_ritmo.append(f"⏱ {away} remata cada 5 minutos o menos")
+                    lineas_ritmo.append(
+                        f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                    )
                     lineas_estadisticas.append(f"🔵 {away}: {remates_away}")
 
                 mensaje = (
@@ -563,7 +551,7 @@ def revisar_mercados_1t():
             if clave not in alertas_remates_totales_altos:
                 mensaje = (
                     f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
-                    f"⏱ Remate cada 3 minutos o menos\n\n"
+                    f"⏱ <b>REMATES CADA 3 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
