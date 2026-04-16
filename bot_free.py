@@ -10,6 +10,7 @@ API_BASE = "https://v3.football.api-sports.io"
 
 alertas_eventos = set()
 alertas_remates_totales_altos = set()
+alertas_remates_equipo = set()
 
 primera_vuelta_eventos = True
 primera_vuelta_mercados = True
@@ -152,6 +153,47 @@ def es_roja(evento):
     )
 
 
+def es_evento_primer_tiempo(evento):
+    tiempo = evento.get("time", {}) or {}
+    elapsed = tiempo.get("elapsed")
+    extra = tiempo.get("extra", 0)
+
+    if elapsed is None:
+        return False
+
+    if extra is None:
+        extra = 0
+
+    try:
+        elapsed = int(elapsed)
+        extra = int(extra)
+    except (TypeError, ValueError):
+        return False
+
+    return elapsed < 45 or (elapsed == 45 and extra >= 0)
+
+
+def formato_minuto_evento(evento):
+    tiempo = evento.get("time", {}) or {}
+    elapsed = tiempo.get("elapsed")
+    extra = tiempo.get("extra", 0)
+
+    try:
+        elapsed = int(elapsed)
+    except (TypeError, ValueError):
+        return "?"
+
+    try:
+        extra = int(extra) if extra is not None else 0
+    except (TypeError, ValueError):
+        extra = 0
+
+    if elapsed == 45 and extra > 0:
+        return f"45+{extra}"
+
+    return str(elapsed)
+
+
 def en_ventana_primer_tiempo(partido):
     estado = partido.get("fixture", {}).get("status", {}).get("short", "")
     minuto = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
@@ -190,13 +232,15 @@ def revisar_eventos_vivo():
                 alertas_eventos.add(clave)
                 continue
 
-            if es_roja(evento):
+            if es_roja(evento) and es_evento_primer_tiempo(evento):
+                minuto_formateado = formato_minuto_evento(evento)
+
                 mensaje = (
-                    f"<b>🟥 EXPULSADO MINUTO {minuto_evento}</b>\n\n"
+                    f"<b>🟥 EXPULSADO MINUTO {minuto_formateado}</b>\n\n"
                     f"🔴 {equipo_evento}\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⚽ {goles_local}-{goles_visitante}"
+                    f"⚽ Resultado parcial {goles_local}-{goles_visitante}"
                 )
                 enviar_mensaje(mensaje)
                 alertas_eventos.add(clave)
@@ -245,17 +289,46 @@ def revisar_mercado_1t():
             remates_away = obtener_remates(away_stats)
             total_remates = remates_home + remates_away
 
+        etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
+
+        if remates_home >= 9 or remates_away >= 9:
+            clave = f"{fixture_id}-remates-equipo"
+            if clave not in alertas_remates_equipo:
+                lineas_ritmo = []
+                lineas_estadisticas = []
+
+                if remates_home >= 9:
+                    lineas_ritmo.append(
+                        f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                    )
+                    lineas_estadisticas.append(f"🔴 {home}: {remates_home}")
+
+                if remates_away >= 9:
+                    lineas_ritmo.append(
+                        f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                    )
+                    lineas_estadisticas.append(f"🔵 {away}: {remates_away}")
+
+                mensaje = (
+                    f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
+                    f"{chr(10).join(lineas_ritmo)}\n\n"
+                    f"{liga} ({pais}) {bandera}\n"
+                    f"{home} vs {away}\n\n"
+                    f"⏱ {etiqueta_tiempo} | ⚽ Resultado parcial {goles_local}-{goles_visitante}\n\n"
+                    f"{chr(10).join(lineas_estadisticas)}"
+                )
+                enviar_mensaje(mensaje)
+                alertas_remates_equipo.add(clave)
+
         if total_remates >= 15:
             clave = f"{fixture_id}-remates-totales-altos"
             if clave not in alertas_remates_totales_altos:
-                etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
-
                 mensaje = (
                     f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
                     f"⏱ <b>REMATES CADA 3 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>\n\n"
                     f"{liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ {etiqueta_tiempo} | ⚽ {goles_local}-{goles_visitante}\n"
+                    f"⏱ {etiqueta_tiempo} | ⚽ Resultado parcial {goles_local}-{goles_visitante}\n"
                     f"🔴 {home}: {remates_home}\n"
                     f"🔵 {away}: {remates_away}\n"
                     f"📊 Total: {total_remates}"
