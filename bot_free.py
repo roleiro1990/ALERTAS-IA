@@ -10,7 +10,7 @@ API_BASE = "https://v3.football.api-sports.io"
 
 alertas_eventos = set()
 alertas_tarjetas = set()
-alertas_remates_equipo = set()
+alertas_remates_totales = set()
 
 primera_vuelta_eventos = True
 primera_vuelta_mercados = True
@@ -322,6 +322,7 @@ def revisar_mercado_1t():
 
         remates_home = 0
         remates_away = 0
+        total_remates = 0
 
         if len(estadisticas) >= 2:
             home_stats = estadisticas[0]["statistics"]
@@ -329,6 +330,7 @@ def revisar_mercado_1t():
 
             remates_home = obtener_remates(home_stats)
             remates_away = obtener_remates(away_stats)
+            total_remates = remates_home + remates_away
 
         etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
 
@@ -346,41 +348,20 @@ def revisar_mercado_1t():
                 enviar_mensaje(mensaje)
                 alertas_tarjetas.add(clave)
 
-        # EXCESO DE REMATES
-        if remates_home >= 9 or remates_away >= 9:
-            clave = f"{fixture_id}-remates-equipo"
-            if clave not in alertas_remates_equipo:
-
-                frases_ritmo = []
-                lineas = []
-
-                if remates_home >= 9:
-                    frases_ritmo.append(
-                        f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
-                    )
-                    lineas.append(
-                        f"🔴 <b>{home.upper()} YA LLEVA {remates_home} REMATES EN LA PRIMERA MITAD</b>"
-                    )
-
-                if remates_away >= 9:
-                    frases_ritmo.append(
-                        f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
-                    )
-                    lineas.append(
-                        f"🔵 <b>{away.upper()} YA LLEVA {remates_away} REMATES EN LA PRIMERA MITAD</b>"
-                    )
-
+        # PARTIDO CON MUCHOS REMATES
+        if total_remates >= 14:
+            clave = f"{fixture_id}-remates-totales"
+            if clave not in alertas_remates_totales:
                 mensaje = (
-                    f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
-                    f"{chr(10).join(frases_ritmo).replace(chr(10), chr(10) * 2)}\n\n"
+                    f"<b>🥅 PARTIDO CON MUCHOS REMATES 🥅</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
-                    f"{chr(10).join(lineas).replace(chr(10), chr(10) * 2)}"
+                    f"📊 <b>YA HAY {total_remates} REMATES EN LA PRIMERA MITAD</b>"
                 )
 
                 enviar_mensaje(mensaje)
-                alertas_remates_equipo.add(clave)
+                alertas_remates_totales.add(clave)
 
 
 def revisar_partidos():
