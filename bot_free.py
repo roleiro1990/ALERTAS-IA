@@ -9,7 +9,7 @@ API_KEY = os.getenv("API_KEY")
 API_BASE = "https://v3.football.api-sports.io"
 
 alertas_eventos = set()
-alertas_remates_totales_altos = set()
+alertas_tarjetas = set()
 alertas_remates_equipo = set()
 
 primera_vuelta_eventos = True
@@ -24,20 +24,49 @@ INTERVALO_MERCADOS = 30
 
 def bandera_pais(pais):
     pais_a_iso = {
-        "Argentina": "AR", "Spain": "ES", "Mexico": "MX", "USA": "US",
-        "Brazil": "BR", "England": "GB", "Italy": "IT", "Germany": "DE",
-        "France": "FR", "Portugal": "PT", "Netherlands": "NL", "Turkey": "TR",
-        "Chile": "CL", "Colombia": "CO", "Uruguay": "UY", "Paraguay": "PY",
-        "Peru": "PE", "Nicaragua": "NI", "El Salvador": "SV", "Costa Rica": "CR",
-        "Honduras": "HN", "Guatemala": "GT", "Panama": "PA",
-        "Dominican Republic": "DO", "Belgium": "BE", "Denmark": "DK",
-        "Croatia": "HR", "Slovenia": "SI", "Czech Republic": "CZ",
-        "Czech-Republic": "CZ", "Ghana": "GH", "Iceland": "IS",
-        "World": "🌍", "Jamaica": "JM", "Venezuela": "VE",
+        "Argentina": "AR",
+        "Spain": "ES",
+        "Mexico": "MX",
+        "USA": "US",
+        "Brazil": "BR",
+        "England": "GB",
+        "Italy": "IT",
+        "Germany": "DE",
+        "France": "FR",
+        "Portugal": "PT",
+        "Netherlands": "NL",
+        "Turkey": "TR",
+        "Chile": "CL",
+        "Colombia": "CO",
+        "Uruguay": "UY",
+        "Paraguay": "PY",
+        "Peru": "PE",
+        "Nicaragua": "NI",
+        "El Salvador": "SV",
+        "Costa Rica": "CR",
+        "Honduras": "HN",
+        "Guatemala": "GT",
+        "Panama": "PA",
+        "Dominican Republic": "DO",
+        "Belgium": "BE",
+        "Denmark": "DK",
+        "Croatia": "HR",
+        "Slovenia": "SI",
+        "Czech Republic": "CZ",
+        "Czech-Republic": "CZ",
+        "Ghana": "GH",
+        "Iceland": "IS",
+        "World": "🌍",
+        "Jamaica": "JM",
+        "Venezuela": "VE",
     }
 
     codigo = pais_a_iso.get(pais)
-    if codigo == "🌍" or not codigo:
+
+    if codigo == "🌍":
+        return "🌍"
+
+    if not codigo:
         return "🌍"
 
     return "".join(chr(127397 + ord(c)) for c in codigo)
@@ -84,20 +113,24 @@ def get_stat(stats, nombre):
 
             if valor is None:
                 return 0
+
             if isinstance(valor, int):
                 return valor
+
             if isinstance(valor, str):
                 valor = valor.replace("%", "").strip()
                 return int(valor) if valor.isdigit() else 0
+
     return 0
 
 
 def obtener_remates(stats):
-    return max([
+    candidatos = [
         get_stat(stats, "Total Shots"),
         get_stat(stats, "Shots Total"),
         get_stat(stats, "Shots"),
-    ])
+    ]
+    return max(candidatos)
 
 
 def es_roja(evento):
@@ -105,12 +138,18 @@ def es_roja(evento):
     detalle = str(evento.get("detail", "")).lower()
     comentario = str(evento.get("comments", "")).lower()
 
-    palabras = ["red card", "yellow red card", "second yellow", "2nd yellow", "red"]
+    palabras_roja = [
+        "red card",
+        "yellow red card",
+        "second yellow",
+        "2nd yellow",
+        "red",
+    ]
 
     return (
-        any(p in tipo for p in palabras)
-        or any(p in detalle for p in palabras)
-        or any(p in comentario for p in palabras)
+        any(p in tipo for p in palabras_roja)
+        or any(p in detalle for p in palabras_roja)
+        or any(p in comentario for p in palabras_roja)
     )
 
 
@@ -119,10 +158,16 @@ def es_evento_primer_tiempo(evento):
     elapsed = tiempo.get("elapsed")
     extra = tiempo.get("extra", 0)
 
+    if elapsed is None:
+        return False
+
+    if extra is None:
+        extra = 0
+
     try:
         elapsed = int(elapsed)
-        extra = int(extra or 0)
-    except:
+        extra = int(extra)
+    except (TypeError, ValueError):
         return False
 
     return elapsed < 45 or (elapsed == 45 and extra >= 0)
@@ -135,9 +180,13 @@ def formato_minuto_evento(evento):
 
     try:
         elapsed = int(elapsed)
-        extra = int(extra or 0)
     except:
         return "?"
+
+    try:
+        extra = int(extra) if extra is not None else 0
+    except:
+        extra = 0
 
     if elapsed == 45 and extra > 0:
         return f"45+{extra}"
@@ -151,7 +200,48 @@ def en_ventana_primer_tiempo(partido):
     return estado in ["1H", "HT"] or (estado == "2H" and minuto <= 46)
 
 
-# 🔥 EVENTOS (EXPULSIONES)
+def liga_tarjetas_permitida(liga, pais):
+    liga = str(liga).strip().lower()
+    pais = str(pais).strip().lower()
+
+    return (
+        (liga == "premier league" and pais == "england")
+        or (liga == "la liga" and pais == "spain")
+        or (liga == "serie a" and pais == "italy")
+        or (liga == "bundesliga" and pais == "germany")
+        or (liga == "ligue 1" and pais == "france")
+        or (liga == "liga mx" and pais == "mexico")
+        or (liga == "mls" and pais == "usa")
+        or (liga in ["brasileirao serie a", "serie a"] and pais == "brazil")
+        or (liga == "liga profesional argentina" and pais == "argentina")
+    )
+
+
+def es_amarilla(evento):
+    tipo = str(evento.get("type", "")).lower()
+    detalle = str(evento.get("detail", "")).lower()
+
+    return (
+        ("card" in tipo or "yellow" in tipo or "yellow" in detalle)
+        and "yellow" in detalle
+    )
+
+
+def contar_amarillas_primer_tiempo(eventos, equipo=None):
+    total = 0
+    for evento in eventos:
+        if not es_evento_primer_tiempo(evento):
+            continue
+        if not es_amarilla(evento):
+            continue
+        if equipo is not None:
+            nombre = evento.get("team", {}).get("name")
+            if nombre != equipo:
+                continue
+        total += 1
+    return total
+
+
 def revisar_eventos_vivo():
     global primera_vuelta_eventos
 
@@ -175,7 +265,6 @@ def revisar_eventos_vivo():
             tipo = str(evento.get("type", "")).strip().lower()
             detalle = str(evento.get("detail", "")).strip().lower()
 
-            # 🔒 CLAVE CORREGIDA (ANTI DUPLICADOS)
             clave = f"{fixture_id}-{equipo_evento}-{jugador}-{tipo}-{detalle}"
 
             if clave in alertas_eventos:
@@ -195,14 +284,12 @@ def revisar_eventos_vivo():
                     f"{home} vs {away}\n\n"
                     f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
                 )
-
                 enviar_mensaje(mensaje)
                 alertas_eventos.add(clave)
 
     primera_vuelta_eventos = False
 
 
-# 🔥 MERCADOS 1T
 def revisar_mercado_1t():
     global primera_vuelta_mercados
 
@@ -228,11 +315,13 @@ def revisar_mercado_1t():
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
         minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
+        eventos = obtener_eventos(fixture_id)
+        total_tarjetas = contar_amarillas_primer_tiempo(eventos)
+
         estadisticas = obtener_estadisticas(fixture_id)
 
         remates_home = 0
         remates_away = 0
-        total_remates = 0
 
         if len(estadisticas) >= 2:
             home_stats = estadisticas[0]["statistics"]
@@ -240,57 +329,58 @@ def revisar_mercado_1t():
 
             remates_home = obtener_remates(home_stats)
             remates_away = obtener_remates(away_stats)
-            total_remates = remates_home + remates_away
 
         etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
 
-        # 🥅 EXCESO DE REMATES
-        if remates_home >= 9 or remates_away >= 9:
-            clave = f"{fixture_id}-remates-equipo"
-
-            if clave not in alertas_remates_equipo:
-
-                frases = []
-                lineas = []
-
-                if remates_home >= 9:
-                    frases.append(f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>")
-                    lineas.append(f"🔴 <b>{home}: ya lleva {remates_home} remates</b>")
-
-                if remates_away >= 9:
-                    frases.append(f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>")
-                    lineas.append(f"🔵 <b>{away}: ya lleva {remates_away} remates</b>")
-
+        # PARTIDO CALIENTE
+        if total_tarjetas >= 4 and liga_tarjetas_permitida(liga, pais):
+            clave = f"{fixture_id}-tarjetas-altas"
+            if clave not in alertas_tarjetas:
                 mensaje = (
-                    f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
-                    f"{chr(10).join(frases)}\n\n"
+                    f"<b>🔥 PARTIDO CALIENTE 🔥</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
-                    f"{chr(10).join(lineas)}"
+                    f"🟨 <b>{total_tarjetas} TARJETAS EN LA PRIMERA MITAD</b>"
+                )
+                enviar_mensaje(mensaje)
+                alertas_tarjetas.add(clave)
+
+        # EXCESO DE REMATES
+        if remates_home >= 9 or remates_away >= 9:
+            clave = f"{fixture_id}-remates-equipo"
+            if clave not in alertas_remates_equipo:
+
+                frases_ritmo = []
+                lineas = []
+
+                if remates_home >= 9:
+                    frases_ritmo.append(
+                        f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                    )
+                    lineas.append(
+                        f"🔴 <b>{home.upper()} YA LLEVA {remates_home} REMATES EN LA PRIMERA MITAD</b>"
+                    )
+
+                if remates_away >= 9:
+                    frases_ritmo.append(
+                        f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                    )
+                    lineas.append(
+                        f"🔵 <b>{away.upper()} YA LLEVA {remates_away} REMATES EN LA PRIMERA MITAD</b>"
+                    )
+
+                mensaje = (
+                    f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
+                    f"{chr(10).join(frases_ritmo).replace(chr(10), chr(10) * 2)}\n\n"
+                    f"🏆 {liga} ({pais}) {bandera}\n"
+                    f"{home} vs {away}\n\n"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                    f"{chr(10).join(lineas).replace(chr(10), chr(10) * 2)}"
                 )
 
                 enviar_mensaje(mensaje)
                 alertas_remates_equipo.add(clave)
-
-        # 🥅 VOLUMEN ALTO
-        if total_remates >= 15:
-            clave = f"{fixture_id}-remates-totales-altos"
-
-            if clave not in alertas_remates_totales_altos:
-                mensaje = (
-                    f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
-                    f"⏱ <b>REMATES CADA 3 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>\n\n"
-                    f"🏆 {liga} ({pais}) {bandera}\n"
-                    f"{home} vs {away}\n\n"
-                    f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
-                    f"🔴 <b>{home}: {remates_home}</b>\n"
-                    f"🔵 <b>{away}: {remates_away}</b>\n"
-                    f"📊 <b>Total: {total_remates} remates en el 1T</b>"
-                )
-
-                enviar_mensaje(mensaje)
-                alertas_remates_totales_altos.add(clave)
 
 
 def revisar_partidos():
@@ -313,5 +403,5 @@ def revisar_partidos():
             time.sleep(10)
             continue
 
-        print("BOT FREE ACTIVO | EXPULSIONES: 30s | REMATES 1T: 30s\n")
+        print("BOT FREE ACTIVO | EXPULSIONES: 30s | MERCADOS 1T: 30s\n")
         time.sleep(5)
