@@ -11,6 +11,7 @@ API_BASE = "https://v3.football.api-sports.io"
 alertas_eventos = set()
 alertas_tarjetas = set()
 alertas_remates_totales = set()
+alertas_corners = set()
 
 primera_vuelta_eventos = True
 primera_vuelta_mercados = True
@@ -133,6 +134,25 @@ def obtener_remates(stats):
     return max(candidatos)
 
 
+def obtener_corners(stats):
+    candidatos = [
+        get_stat(stats, "Corner Kicks"),
+        get_stat(stats, "Corners"),
+        get_stat(stats, "Corner"),
+        get_stat(stats, "Corner kicks"),
+        get_stat(stats, "corner kicks"),
+        get_stat(stats, "Saques de esquina"),
+        get_stat(stats, "Tiros de esquina"),
+    ]
+    return max(candidatos)
+
+
+def obtener_corners_stats(home_stats, away_stats):
+    home_corners = obtener_corners(home_stats)
+    away_corners = obtener_corners(away_stats)
+    return home_corners + away_corners
+
+
 def es_roja(evento):
     tipo = str(evento.get("type", "")).lower()
     detalle = str(evento.get("detail", "")).lower()
@@ -227,6 +247,14 @@ def es_amarilla(evento):
     )
 
 
+def es_corner(evento):
+    tipo = str(evento.get("type", "")).lower()
+    detalle = str(evento.get("detail", "")).lower()
+    comentario = str(evento.get("comments", "")).lower()
+
+    return "corner" in tipo or "corner" in detalle or "corner" in comentario
+
+
 def contar_amarillas_primer_tiempo(eventos, equipo=None):
     total = 0
     for evento in eventos:
@@ -239,6 +267,16 @@ def contar_amarillas_primer_tiempo(eventos, equipo=None):
             if nombre != equipo:
                 continue
         total += 1
+    return total
+
+
+def contar_corners_eventos_primer_tiempo(eventos):
+    total = 0
+    for evento in eventos:
+        if not es_evento_primer_tiempo(evento):
+            continue
+        if es_corner(evento):
+            total += 1
     return total
 
 
@@ -317,12 +355,14 @@ def revisar_mercado_1t():
 
         eventos = obtener_eventos(fixture_id)
         total_tarjetas = contar_amarillas_primer_tiempo(eventos)
+        corners_eventos = contar_corners_eventos_primer_tiempo(eventos)
 
         estadisticas = obtener_estadisticas(fixture_id)
 
         remates_home = 0
         remates_away = 0
         total_remates = 0
+        corners_stats = 0
 
         if len(estadisticas) >= 2:
             home_stats = estadisticas[0]["statistics"]
@@ -331,7 +371,9 @@ def revisar_mercado_1t():
             remates_home = obtener_remates(home_stats)
             remates_away = obtener_remates(away_stats)
             total_remates = remates_home + remates_away
+            corners_stats = obtener_corners_stats(home_stats, away_stats)
 
+        total_corners = max(corners_eventos, corners_stats)
         etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
 
         # PARTIDO CALIENTE
@@ -348,20 +390,34 @@ def revisar_mercado_1t():
                 enviar_mensaje(mensaje)
                 alertas_tarjetas.add(clave)
 
-        # PARTIDO CON MUCHOS REMATES
+        # MUCHOS REMATES EN EL 1T
         if total_remates >= 14:
             clave = f"{fixture_id}-remates-totales"
             if clave not in alertas_remates_totales:
                 mensaje = (
-                    f"<b>🥅 PARTIDO CON MUCHOS REMATES 🥅</b>\n\n"
+                    f"<b>🥅 MUCHOS REMATES EN EL 1T 🥅</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
-                    f"📊 <b>YA HAY {total_remates} REMATES EN LA PRIMERA MITAD</b>"
+                    f"📊 <b>Ya hay {total_remates} remates en el 1T</b>"
                 )
 
                 enviar_mensaje(mensaje)
                 alertas_remates_totales.add(clave)
+
+        # PARTIDO DINÁMICO
+        if total_corners >= 6:
+            clave = f"{fixture_id}-corners-altos"
+            if clave not in alertas_corners:
+                mensaje = (
+                    f"<b>🚩 PARTIDO DINÁMICO 🚩</b>\n\n"
+                    f"🏆 {liga} ({pais}) {bandera}\n"
+                    f"{home} vs {away}\n\n"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                    f"🚩 <b>Ya hay {total_corners} córners en el 1T</b>"
+                )
+                enviar_mensaje(mensaje)
+                alertas_corners.add(clave)
 
 
 def revisar_partidos():
