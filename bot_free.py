@@ -406,7 +406,7 @@ def revisar_mercado_1t():
                 alertas_remates_totales.add(clave)
 
         # PARTIDO DINÁMICO
-        if total_corners >= 6:
+        if total_corners >= 7:
             clave = f"{fixture_id}-corners-altos"
             if clave not in alertas_corners:
                 mensaje = (
