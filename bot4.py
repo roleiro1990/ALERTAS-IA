@@ -139,9 +139,22 @@ def obtener_remates(stats):
     return max(candidatos)
 
 
+def obtener_corners(stats):
+    candidatos = [
+        get_stat(stats, "Corner Kicks"),
+        get_stat(stats, "Corners"),
+        get_stat(stats, "Corner"),
+        get_stat(stats, "Corner kicks"),
+        get_stat(stats, "corner kicks"),
+        get_stat(stats, "Saques de esquina"),
+        get_stat(stats, "Tiros de esquina"),
+    ]
+    return max(candidatos)
+
+
 def obtener_corners_stats(home_stats, away_stats):
-    home_corners = get_stat(home_stats, "Corner Kicks")
-    away_corners = get_stat(away_stats, "Corner Kicks")
+    home_corners = obtener_corners(home_stats)
+    away_corners = obtener_corners(away_stats)
     return home_corners + away_corners
 
 
@@ -527,7 +540,7 @@ def revisar_mercados_1t():
                     enviar_mensaje(mensaje)
                     alertas_tarjetas_equipo.add(clave)
 
-        if total_corners >= 7:
+        if total_corners >= 6:
             clave = f"{fixture_id}-corners-altos"
             if clave not in alertas_corners:
                 mensaje = (
