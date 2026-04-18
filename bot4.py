@@ -494,7 +494,7 @@ def revisar_mercados_1t():
                     f"<b>🔥 PARTIDO CALIENTE 🔥</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
                     f"🟨 <b>{total_tarjetas} TARJETAS EN LA PRIMERA MITAD</b>"
                 )
                 enviar_mensaje(mensaje)
@@ -507,7 +507,7 @@ def revisar_mercados_1t():
                     f"<b>📉 PARTIDO SIN FRICCIÓN</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ <b>1T Finalizado</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
+                    f"⏱ <b>1T Finalizado</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
                     f"🟨 <b>0 TARJETAS EN LA PRIMERA MITAD</b>"
                 )
                 enviar_mensaje(mensaje)
@@ -521,8 +521,8 @@ def revisar_mercados_1t():
                         f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
                         f"🏆 {liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
-                        f"🟨 <b>{home.upper()} YA TIENE {tarjetas_home} TARJETAS SOLO EN LA PRIMERA MITAD</b>"
+                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                        f"🟨 <b>{home.upper()} tiene {tarjetas_home} tarjetas SOLO en el 1T 🔥</b>"
                     )
                     enviar_mensaje(mensaje)
                     alertas_tarjetas_equipo.add(clave)
@@ -534,8 +534,8 @@ def revisar_mercados_1t():
                         f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
                         f"🏆 {liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
-                        f"🟨 <b>{away.upper()} YA TIENE {tarjetas_away} TARJETAS SOLO EN LA PRIMERA MITAD</b>"
+                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                        f"🟨 <b>{away.upper()} tiene {tarjetas_away} tarjetas SOLO en el 1T 🔥</b>"
                     )
                     enviar_mensaje(mensaje)
                     alertas_tarjetas_equipo.add(clave)
@@ -547,8 +547,8 @@ def revisar_mercados_1t():
                     f"<b>🚩 PARTIDO DINÁMICO 🚩</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
-                    f"🚩 <b>YA HAY {total_corners} CÓRNERS EN LA PRIMERA MITAD</b>"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                    f"🚩 <b>Ya hubo {total_corners} córners en el 1T 🔥</b>"
                 )
                 enviar_mensaje(mensaje)
                 alertas_corners.add(clave)
@@ -561,18 +561,18 @@ def revisar_mercados_1t():
 
                 if remates_home >= 9:
                     lineas_ritmo.append(
-                        f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                        f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL 1T</b>"
                     )
                     lineas_estadisticas.append(
-                        f"🔴 <b>{home.upper()} YA LLEVA {remates_home} REMATES EN LA PRIMERA MITAD</b>"
+                        f"🔴 <b>{home.upper()} ya remató {remates_home} veces en el 1T 🔥</b>"
                     )
 
                 if remates_away >= 9:
                     lineas_ritmo.append(
-                        f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>"
+                        f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL 1T</b>"
                     )
                     lineas_estadisticas.append(
-                        f"🔵 <b>{away.upper()} YA LLEVA {remates_away} REMATES EN LA PRIMERA MITAD</b>"
+                        f"🔵 <b>{away.upper()} ya remató {remates_away} veces en el 1T 🔥</b>"
                     )
 
                 mensaje = (
@@ -591,13 +591,13 @@ def revisar_mercados_1t():
             if clave not in alertas_remates_totales_altos:
                 mensaje = (
                     f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
-                    f"⏱ <b>REMATES CADA 3 MINUTOS O MENOS EN EL PRIMER TIEMPO</b>\n\n"
+                    f"⏱ <b>REMATES CADA 3 MINUTOS O MENOS EN EL 1T</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
                     f"🔴 <b>{home.upper()}: {remates_home} REMATES</b>\n\n"
                     f"🔵 <b>{away.upper()}: {remates_away} REMATES</b>\n\n"
-                    f"📊 <b>TOTAL: {total_remates} REMATES EN LA PRIMERA MITAD</b>"
+                    f"📊 <b>{total_remates} remates en el 1T 🔥</b>"
                 )
                 enviar_mensaje(mensaje)
                 alertas_remates_totales_altos.add(clave)
