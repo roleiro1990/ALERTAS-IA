@@ -540,7 +540,7 @@ def revisar_mercados_1t():
                     enviar_mensaje(mensaje)
                     alertas_tarjetas_equipo.add(clave)
 
-        if total_corners >= 7:
+        if total_corners >= 8:
             clave = f"{fixture_id}-corners-altos"
             if clave not in alertas_corners:
                 mensaje = (
