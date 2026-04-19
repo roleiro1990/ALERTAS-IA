@@ -10,8 +10,11 @@ API_BASE = "https://v3.football.api-sports.io"
 
 alertas_eventos = set()
 alertas_tarjetas = set()
-alertas_remates_totales = set()
+alertas_tarjetas_bajas = set()
+alertas_tarjetas_equipo = set()
 alertas_corners = set()
+alertas_remates = set()
+alertas_remates_totales_altos = set()
 
 primera_vuelta_eventos = True
 primera_vuelta_mercados = True
@@ -200,41 +203,18 @@ def formato_minuto_evento(evento):
 
     try:
         elapsed = int(elapsed)
-    except:
+    except (TypeError, ValueError):
         return "?"
 
     try:
         extra = int(extra) if extra is not None else 0
-    except:
+    except (TypeError, ValueError):
         extra = 0
 
     if elapsed == 45 and extra > 0:
         return f"45+{extra}"
 
     return str(elapsed)
-
-
-def en_ventana_primer_tiempo(partido):
-    estado = partido.get("fixture", {}).get("status", {}).get("short", "")
-    minuto = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
-    return estado in ["1H", "HT"] or (estado == "2H" and minuto <= 46)
-
-
-def liga_tarjetas_permitida(liga, pais):
-    liga = str(liga).strip().lower()
-    pais = str(pais).strip().lower()
-
-    return (
-        (liga == "premier league" and pais == "england")
-        or (liga == "la liga" and pais == "spain")
-        or (liga == "serie a" and pais == "italy")
-        or (liga == "bundesliga" and pais == "germany")
-        or (liga == "ligue 1" and pais == "france")
-        or (liga == "liga mx" and pais == "mexico")
-        or (liga == "mls" and pais == "usa")
-        or (liga in ["brasileirao serie a", "serie a"] and pais == "brazil")
-        or (liga == "liga profesional argentina" and pais == "argentina")
-    )
 
 
 def es_amarilla(evento):
@@ -280,6 +260,51 @@ def contar_corners_eventos_primer_tiempo(eventos):
     return total
 
 
+def en_ventana_primer_tiempo(partido):
+    estado = partido.get("fixture", {}).get("status", {}).get("short", "")
+    minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
+    return estado in ["1H", "HT"] or (estado == "2H" and minuto_actual <= 46)
+
+
+def log_stats_partido(
+    fixture_id,
+    liga,
+    pais,
+    home,
+    away,
+    estado_corto,
+    minuto_actual,
+    total_tarjetas,
+    tarjetas_home,
+    tarjetas_away,
+    corners_eventos,
+    corners_stats,
+    total_corners,
+    remates_home,
+    remates_away,
+    total_remates,
+    stats_len,
+):
+    print(
+        "DEBUG 1T | "
+        f"fixture={fixture_id} | "
+        f"liga={liga} ({pais}) | "
+        f"partido={home} vs {away} | "
+        f"estado={estado_corto} | "
+        f"min={minuto_actual} | "
+        f"stats_items={stats_len} | "
+        f"tarjetas_total={total_tarjetas} | "
+        f"tarjetas_home={tarjetas_home} | "
+        f"tarjetas_away={tarjetas_away} | "
+        f"corners_eventos={corners_eventos} | "
+        f"corners_stats={corners_stats} | "
+        f"corners_total={total_corners} | "
+        f"remates_home={remates_home} | "
+        f"remates_away={remates_away} | "
+        f"remates_total={total_remates}"
+    )
+
+
 def revisar_eventos_vivo():
     global primera_vuelta_eventos
 
@@ -299,11 +324,15 @@ def revisar_eventos_vivo():
 
         for evento in eventos:
             equipo_evento = evento.get("team", {}).get("name", "Equipo")
-            jugador = str(evento.get("player", {}).get("name", "")).strip().lower()
-            tipo = str(evento.get("type", "")).strip().lower()
-            detalle = str(evento.get("detail", "")).strip().lower()
 
-            clave = f"{fixture_id}-{equipo_evento}-{jugador}-{tipo}-{detalle}"
+            if es_roja(evento):
+                minuto_formateado = formato_minuto_evento(evento)
+                clave = f"{fixture_id}-roja-{equipo_evento}-{minuto_formateado}"
+            else:
+                jugador_evento = str(evento.get("player", {}).get("name", "")).strip().lower()
+                tipo = str(evento.get("type", "")).strip().lower()
+                detalle = str(evento.get("detail", "")).strip().lower()
+                clave = f"{fixture_id}-{equipo_evento}-{jugador_evento}-{tipo}-{detalle}"
 
             if clave in alertas_eventos:
                 continue
@@ -312,30 +341,46 @@ def revisar_eventos_vivo():
                 alertas_eventos.add(clave)
                 continue
 
-            if es_roja(evento) and es_evento_primer_tiempo(evento):
-                minuto_formateado = formato_minuto_evento(evento)
+            if es_roja(evento):
+                tiempo = evento.get("time", {}) or {}
+                elapsed = tiempo.get("elapsed")
+                try:
+                    elapsed = int(elapsed)
+                except (TypeError, ValueError):
+                    elapsed = None
 
-                mensaje = (
-                    f"<b>🟥 EXPULSADO MINUTO {minuto_formateado}</b>\n\n"
-                    f"🔴 <b>{equipo_evento}</b>\n\n"
-                    f"🏆 {liga} ({pais}) {bandera}\n"
-                    f"{home} vs {away}\n\n"
-                    f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
-                )
-                enviar_mensaje(mensaje)
+                if elapsed is not None and elapsed <= 30:
+                    minuto_formateado = formato_minuto_evento(evento)
+                    mensaje = (
+                        f"<b>🟥 EXPULSADO MINUTO {minuto_formateado}</b>\n\n"
+                        f"🔴 <b>{equipo_evento}</b>\n\n"
+                        f"🏆 {liga} ({pais}) {bandera}\n"
+                        f"{home} vs {away}\n\n"
+                        f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
+                    )
+                    enviar_mensaje(mensaje)
+                    alertas_eventos.add(clave)
+                else:
+                    alertas_eventos.add(clave)
+
+            else:
                 alertas_eventos.add(clave)
 
     primera_vuelta_eventos = False
 
 
-def revisar_mercado_1t():
+def revisar_mercados_1t():
     global primera_vuelta_mercados
 
     partidos = obtener_partidos_en_vivo()
 
     if primera_vuelta_mercados:
         primera_vuelta_mercados = False
+        print("PRIMERA VUELTA MERCADOS OK")
         return
+
+    evaluados = 0
+    sin_stats = 0
 
     for partido in partidos:
         if not en_ventana_primer_tiempo(partido):
@@ -349,12 +394,16 @@ def revisar_mercado_1t():
         liga = partido["league"]["name"]
         pais = partido["league"]["country"]
         bandera = bandera_pais(pais)
-
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
         minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
+        evaluados += 1
+
         eventos = obtener_eventos(fixture_id)
+
         total_tarjetas = contar_amarillas_primer_tiempo(eventos)
+        tarjetas_home = contar_amarillas_primer_tiempo(eventos, home)
+        tarjetas_away = contar_amarillas_primer_tiempo(eventos, away)
         corners_eventos = contar_corners_eventos_primer_tiempo(eventos)
 
         estadisticas = obtener_estadisticas(fixture_id)
@@ -365,18 +414,44 @@ def revisar_mercado_1t():
         corners_stats = 0
 
         if len(estadisticas) >= 2:
-            home_stats = estadisticas[0]["statistics"]
-            away_stats = estadisticas[1]["statistics"]
+            home_stats = estadisticas[0].get("statistics", [])
+            away_stats = estadisticas[1].get("statistics", [])
 
             remates_home = obtener_remates(home_stats)
             remates_away = obtener_remates(away_stats)
             total_remates = remates_home + remates_away
             corners_stats = obtener_corners_stats(home_stats, away_stats)
+        else:
+            sin_stats += 1
+            print(
+                f"DEBUG STATS VACIAS | fixture={fixture_id} | {home} vs {away} | "
+                f"liga={liga} ({pais}) | estado={estado_corto} | min={minuto_actual} | "
+                f"items_stats={len(estadisticas)}"
+            )
 
         total_corners = max(corners_eventos, corners_stats)
         etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
 
-        # PARTIDO CALIENTE
+        log_stats_partido(
+            fixture_id=fixture_id,
+            liga=liga,
+            pais=pais,
+            home=home,
+            away=away,
+            estado_corto=estado_corto,
+            minuto_actual=minuto_actual,
+            total_tarjetas=total_tarjetas,
+            tarjetas_home=tarjetas_home,
+            tarjetas_away=tarjetas_away,
+            corners_eventos=corners_eventos,
+            corners_stats=corners_stats,
+            total_corners=total_corners,
+            remates_home=remates_home,
+            remates_away=remates_away,
+            total_remates=total_remates,
+            stats_len=len(estadisticas),
+        )
+
         if total_tarjetas >= 4 and liga_tarjetas_permitida(liga, pais):
             clave = f"{fixture_id}-tarjetas-altas"
             if clave not in alertas_tarjetas:
@@ -384,28 +459,52 @@ def revisar_mercado_1t():
                     f"<b>🔥 PARTIDO CALIENTE 🔥</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
                     f"🟨 <b>{total_tarjetas} TARJETAS EN LA PRIMERA MITAD</b>"
                 )
                 enviar_mensaje(mensaje)
                 alertas_tarjetas.add(clave)
 
-        # MUCHOS REMATES EN EL 1T
-        if total_remates >= 14:
-            clave = f"{fixture_id}-remates-totales"
-            if clave not in alertas_remates_totales:
+        if total_tarjetas == 0 and estado_corto == "HT" and liga_tarjetas_permitida(liga, pais):
+            clave = f"{fixture_id}-tarjetas-bajas"
+            if clave not in alertas_tarjetas_bajas:
                 mensaje = (
-                    f"<b>🥅 MUCHOS REMATES EN EL 1T 🥅</b>\n\n"
+                    f"<b>📉 PARTIDO SIN FRICCIÓN</b>\n\n"
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
-                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
-                    f"📊 <b>Ya hay {total_remates} remates en el 1T</b>"
+                    f"⏱ <b>1T Finalizado</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                    f"🟨 <b>0 TARJETAS EN LA PRIMERA MITAD</b>"
                 )
-
                 enviar_mensaje(mensaje)
-                alertas_remates_totales.add(clave)
+                alertas_tarjetas_bajas.add(clave)
 
-        # PARTIDO DINÁMICO
+        if not liga_tarjetas_permitida(liga, pais):
+            if tarjetas_home >= 4:
+                clave = f"{fixture_id}-tarjetas-equipo-{home}"
+                if clave not in alertas_tarjetas_equipo:
+                    mensaje = (
+                        f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
+                        f"🏆 {liga} ({pais}) {bandera}\n"
+                        f"{home} vs {away}\n\n"
+                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                        f"🟨 <b>{home.upper()} tiene {tarjetas_home} tarjetas SOLO en el 1T 🔥</b>"
+                    )
+                    enviar_mensaje(mensaje)
+                    alertas_tarjetas_equipo.add(clave)
+
+            if tarjetas_away >= 4:
+                clave = f"{fixture_id}-tarjetas-equipo-{away}"
+                if clave not in alertas_tarjetas_equipo:
+                    mensaje = (
+                        f"<b>🟨 EXCESO DE TARJETAS</b>\n\n"
+                        f"🏆 {liga} ({pais}) {bandera}\n"
+                        f"{home} vs {away}\n\n"
+                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                        f"🟨 <b>{away.upper()} tiene {tarjetas_away} tarjetas SOLO en el 1T 🔥</b>"
+                    )
+                    enviar_mensaje(mensaje)
+                    alertas_tarjetas_equipo.add(clave)
+
         if total_corners >= 8:
             clave = f"{fixture_id}-corners-altos"
             if clave not in alertas_corners:
@@ -414,10 +513,63 @@ def revisar_mercado_1t():
                     f"🏆 {liga} ({pais}) {bandera}\n"
                     f"{home} vs {away}\n\n"
                     f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
-                    f"🚩 <b>Ya hay {total_corners} córners en el 1T</b>"
+                    f"🚩 <b>Ya hubo {total_corners} córners en el 1T 🔥</b>"
                 )
                 enviar_mensaje(mensaje)
                 alertas_corners.add(clave)
+
+        if remates_home >= 10 or remates_away >= 10:
+            clave = f"{fixture_id}-remates-equipo"
+            if clave not in alertas_remates:
+                lineas_ritmo = []
+                lineas_estadisticas = []
+
+                if remates_home >= 10:
+                    lineas_ritmo.append(
+                        f"⏱ <b>{home.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
+                    )
+                    lineas_estadisticas.append(
+                        f"🔴 <b>{home.upper()} ya remató {remates_home} veces en el 1T 🔥</b>"
+                    )
+
+                if remates_away >= 10:
+                    lineas_ritmo.append(
+                        f"⏱ <b>{away.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
+                    )
+                    lineas_estadisticas.append(
+                        f"🔵 <b>{away.upper()} ya remató {remates_away} veces en el 1T 🔥</b>"
+                    )
+
+                mensaje = (
+                    f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
+                    f"{chr(10).join(lineas_ritmo).replace(chr(10), chr(10) * 2)}\n\n"
+                    f"🏆 {liga} ({pais}) {bandera}\n"
+                    f"{home} vs {away}\n\n"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                    f"{chr(10).join(lineas_estadisticas).replace(chr(10), chr(10) * 2)}"
+                )
+                enviar_mensaje(mensaje)
+                alertas_remates.add(clave)
+
+        if total_remates >= 16:
+            clave = f"{fixture_id}-remates-totales-altos"
+            if clave not in alertas_remates_totales_altos:
+                mensaje = (
+                    f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
+                    f"⏱ <b>REMATES CADA MENOS DE 3 MINUTOS EN EL 1T</b>\n\n"
+                    f"🏆 {liga} ({pais}) {bandera}\n"
+                    f"{home} vs {away}\n\n"
+                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                    f"🔴 <b>{home.upper()}: {remates_home} REMATES</b>\n\n"
+                    f"🔵 <b>{away.upper()}: {remates_away} REMATES</b>\n\n"
+                    f"📊 <b>{total_remates} remates en el 1T 🔥</b>"
+                )
+                enviar_mensaje(mensaje)
+                alertas_remates_totales_altos.add(clave)
+
+    print(
+        f"DEBUG RESUMEN 1T | evaluados={evaluados} | sin_stats={sin_stats}"
+    )
 
 
 def revisar_partidos():
@@ -432,7 +584,7 @@ def revisar_partidos():
                 ULTIMA_REVISION_EVENTOS = ahora
 
             if ahora - ULTIMA_REVISION_MERCADOS >= INTERVALO_MERCADOS:
-                revisar_mercado_1t()
+                revisar_mercados_1t()
                 ULTIMA_REVISION_MERCADOS = ahora
 
         except Exception as e:
@@ -440,5 +592,5 @@ def revisar_partidos():
             time.sleep(10)
             continue
 
-        print("BOT FREE ACTIVO | EXPULSIONES: 30s | MERCADOS 1T: 30s\n")
+        print("BOT FREE ACTIVO | EVENTOS: 30s | MERCADOS 1T: 30s\n")
         time.sleep(5)
