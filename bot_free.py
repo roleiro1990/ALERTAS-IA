@@ -129,12 +129,15 @@ def get_stat(stats, nombre):
 
 
 def obtener_remates(stats):
-    candidatos = [
-        get_stat(stats, "Total Shots"),
-        get_stat(stats, "Shots Total"),
-        get_stat(stats, "Shots"),
-    ]
-    return max(candidatos)
+    total_shots = get_stat(stats, "Total Shots")
+    if total_shots > 0:
+        return total_shots
+
+    shots_total = get_stat(stats, "Shots Total")
+    if shots_total > 0:
+        return shots_total
+
+    return get_stat(stats, "Shots")
 
 
 def obtener_corners(stats):
