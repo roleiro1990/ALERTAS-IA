@@ -235,6 +235,23 @@ def es_corner(evento):
     return "corner" in tipo or "corner" in detalle or "corner" in comentario
 
 
+def liga_tarjetas_permitida(liga, pais):
+    liga = str(liga).strip().lower()
+    pais = str(pais).strip().lower()
+
+    return (
+        (liga == "premier league" and pais == "england")
+        or (liga == "la liga" and pais == "spain")
+        or (liga == "serie a" and pais == "italy")
+        or (liga == "bundesliga" and pais == "germany")
+        or (liga == "ligue 1" and pais == "france")
+        or (liga == "liga mx" and pais == "mexico")
+        or (liga == "mls" and pais == "usa")
+        or (liga in ["brasileirao serie a", "serie a"] and pais == "brazil")
+        or (liga == "liga profesional argentina" and pais == "argentina")
+    )
+
+
 def contar_amarillas_primer_tiempo(eventos, equipo=None):
     total = 0
     for evento in eventos:
@@ -594,3 +611,6 @@ def revisar_partidos():
 
         print("BOT FREE ACTIVO | EVENTOS: 30s | MERCADOS 1T: 30s\n")
         time.sleep(5)
+
+
+revisar_partidos()
