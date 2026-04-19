@@ -553,13 +553,13 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_corners.add(clave)
 
-        if remates_home >= 9 or remates_away >= 9:
+        if remates_home >= 10 or remates_away >= 10:
             clave = f"{fixture_id}-remates-equipo"
             if clave not in alertas_remates:
                 lineas_ritmo = []
                 lineas_estadisticas = []
 
-                if remates_home >= 9:
+                if remates_home >= 10:
                     lineas_ritmo.append(
                         f"⏱ <b>{home.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL 1T</b>"
                     )
@@ -567,7 +567,7 @@ def revisar_mercados_1t():
                         f"🔴 <b>{home.upper()} ya remató {remates_home} veces en el 1T 🔥</b>"
                     )
 
-                if remates_away >= 9:
+                if remates_away >= 10:
                     lineas_ritmo.append(
                         f"⏱ <b>{away.upper()} REMATA CADA 5 MINUTOS O MENOS EN EL 1T</b>"
                     )
@@ -586,7 +586,7 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_remates.add(clave)
 
-        if total_remates >= 15:
+        if total_remates >= 16:
             clave = f"{fixture_id}-remates-totales-altos"
             if clave not in alertas_remates_totales_altos:
                 mensaje = (
