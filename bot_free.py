@@ -258,6 +258,16 @@ def liga_tarjetas_permitida(liga, pais):
     )
 
 
+def liga_remates_excluida(liga, pais):
+    liga = str(liga).strip().lower()
+    pais = str(pais).strip().lower()
+
+    return (
+        (liga == "ekstraklasa" and pais == "poland")
+        or (liga == "indian super league" and pais == "india")
+    )
+
+
 def contar_amarillas_primer_tiempo(eventos, equipo=None):
     total = 0
     for evento in eventos:
@@ -284,8 +294,13 @@ def contar_corners_eventos_primer_tiempo(eventos):
 
 
 def en_ventana_primer_tiempo(partido):
-    estado = partido.get("fixture", {}).get("status", {}).get("short", "")
+    estado = str(partido.get("fixture", {}).get("status", {}).get("short", "")).upper()
     minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
+
+    estados_bloqueados = {"ET", "AET", "P", "PEN", "BT", "SUSP", "INT", "FT", "LIVE"}
+    if estado in estados_bloqueados:
+        return False
+
     return estado in ["1H", "HT"] or (estado == "2H" and minuto_actual <= 46)
 
 
@@ -372,17 +387,30 @@ def revisar_eventos_vivo():
                 except (TypeError, ValueError):
                     elapsed = None
 
+                minuto_formateado = formato_minuto_evento(evento)
+
                 if elapsed is not None and elapsed <= 30:
-                    minuto_formateado = formato_minuto_evento(evento)
                     mensaje = (
-                        f"<b>🟥 EXPULSADO MINUTO {minuto_formateado}</b>\n\n"
+                        f"<b>🟥 EXPULSIÓN TEMPRANA</b>\n\n"
                         f"🔴 <b>{equipo_evento}</b>\n\n"
                         f"🏆 {liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
+                        f"⏱ <b>Min {minuto_formateado}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
                     )
                     enviar_mensaje(mensaje)
                     alertas_eventos.add(clave)
+
+                elif es_evento_primer_tiempo(evento):
+                    mensaje = (
+                        f"<b>🟥 EXPULSIÓN PRIMER TIEMPO</b>\n\n"
+                        f"🔴 <b>{equipo_evento}</b>\n\n"
+                        f"🏆 {liga} ({pais}) {bandera}\n"
+                        f"{home} vs {away}\n\n"
+                        f"⏱ <b>Min {minuto_formateado}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
+                    )
+                    enviar_mensaje(mensaje)
+                    alertas_eventos.add(clave)
+
                 else:
                     alertas_eventos.add(clave)
 
@@ -541,58 +569,57 @@ def revisar_mercados_1t():
                 enviar_mensaje(mensaje)
                 alertas_corners.add(clave)
 
-        if remates_home >= 10 or remates_away >= 10:
-            clave = f"{fixture_id}-remates-equipo"
-            if clave not in alertas_remates:
-                lineas_ritmo = []
-                lineas_estadisticas = []
+        if not liga_remates_excluida(liga, pais):
+            if remates_home >= 10 or remates_away >= 10:
+                clave = f"{fixture_id}-remates-equipo"
+                if clave not in alertas_remates:
+                    lineas_ritmo = []
+                    lineas_estadisticas = []
 
-                if remates_home >= 10:
-                    lineas_ritmo.append(
-                        f"⏱ <b>{home.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
+                    if remates_home >= 10:
+                        lineas_ritmo.append(
+                            f"⏱ <b>{home.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
+                        )
+                        lineas_estadisticas.append(
+                            f"🔴 <b>{home.upper()} ya remató {remates_home} veces en el 1T 🔥</b>"
+                        )
+
+                    if remates_away >= 10:
+                        lineas_ritmo.append(
+                            f"⏱ <b>{away.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
+                        )
+                        lineas_estadisticas.append(
+                            f"🔵 <b>{away.upper()} ya remató {remates_away} veces en el 1T 🔥</b>"
+                        )
+
+                    mensaje = (
+                        f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
+                        f"{chr(10).join(lineas_ritmo).replace(chr(10), chr(10) * 2)}\n\n"
+                        f"🏆 {liga} ({pais}) {bandera}\n"
+                        f"{home} vs {away}\n\n"
+                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                        f"{chr(10).join(lineas_estadisticas).replace(chr(10), chr(10) * 2)}"
                     )
-                    lineas_estadisticas.append(
-                        f"🔴 <b>{home.upper()} ya remató {remates_home} veces en el 1T 🔥</b>"
+                    enviar_mensaje(mensaje)
+                    alertas_remates.add(clave)
+
+            if total_remates >= 16:
+                clave = f"{fixture_id}-remates-totales-altos"
+                if clave not in alertas_remates_totales_altos:
+                    mensaje = (
+                        f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
+                        f"⏱ <b>REMATES CADA MENOS DE 3 MINUTOS EN EL 1T</b>\n\n"
+                        f"🏆 {liga} ({pais}) {bandera}\n"
+                        f"{home} vs {away}\n\n"
+                        f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
+                        f"🔴 <b>{home.upper()}: {remates_home} REMATES</b>\n\n"
+                        f"🔵 <b>{away.upper()}: {remates_away} REMATES</b>\n\n"
+                        f"📊 <b>{total_remates} remates en el 1T 🔥</b>"
                     )
+                    enviar_mensaje(mensaje)
+                    alertas_remates_totales_altos.add(clave)
 
-                if remates_away >= 10:
-                    lineas_ritmo.append(
-                        f"⏱ <b>{away.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
-                    )
-                    lineas_estadisticas.append(
-                        f"🔵 <b>{away.upper()} ya remató {remates_away} veces en el 1T 🔥</b>"
-                    )
-
-                mensaje = (
-                    f"<b>🥅 EXCESO DE REMATES 🥅</b>\n\n"
-                    f"{chr(10).join(lineas_ritmo).replace(chr(10), chr(10) * 2)}\n\n"
-                    f"🏆 {liga} ({pais}) {bandera}\n"
-                    f"{home} vs {away}\n\n"
-                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
-                    f"{chr(10).join(lineas_estadisticas).replace(chr(10), chr(10) * 2)}"
-                )
-                enviar_mensaje(mensaje)
-                alertas_remates.add(clave)
-
-        if total_remates >= 16:
-            clave = f"{fixture_id}-remates-totales-altos"
-            if clave not in alertas_remates_totales_altos:
-                mensaje = (
-                    f"<b>🥅 VOLUMEN ALTO DE REMATES 🥅</b>\n\n"
-                    f"⏱ <b>REMATES CADA MENOS DE 3 MINUTOS EN EL 1T</b>\n\n"
-                    f"🏆 {liga} ({pais}) {bandera}\n"
-                    f"{home} vs {away}\n\n"
-                    f"⏱ <b>{etiqueta_tiempo}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>\n\n"
-                    f"🔴 <b>{home.upper()}: {remates_home} REMATES</b>\n\n"
-                    f"🔵 <b>{away.upper()}: {remates_away} REMATES</b>\n\n"
-                    f"📊 <b>{total_remates} remates en el 1T 🔥</b>"
-                )
-                enviar_mensaje(mensaje)
-                alertas_remates_totales_altos.add(clave)
-
-    print(
-        f"DEBUG RESUMEN 1T | evaluados={evaluados} | sin_stats={sin_stats}"
-    )
+    print(f"DEBUG RESUMEN 1T | evaluados={evaluados} | sin_stats={sin_stats}")
 
 
 def revisar_partidos():
