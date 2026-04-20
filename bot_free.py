@@ -293,13 +293,12 @@ def contar_corners_eventos_primer_tiempo(eventos):
 
 def en_ventana_primer_tiempo(partido):
     estado = str(partido.get("fixture", {}).get("status", {}).get("short", "")).upper()
-    minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
     estados_bloqueados = {"ET", "AET", "P", "PEN", "BT", "SUSP", "INT", "FT", "LIVE"}
     if estado in estados_bloqueados:
         return False
 
-    return estado in ["1H", "HT"] or (estado == "2H" and minuto_actual <= 46)
+    return estado in ["1H", "HT"]
 
 
 def log_stats_partido(
