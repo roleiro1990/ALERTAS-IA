@@ -388,22 +388,22 @@ def revisar_eventos_vivo():
 
                 if elapsed is not None and elapsed <= 30:
                     mensaje = (
-                        f"<b>🟥 EXPULSIÓN TEMPRANA</b>\n\n"
+                        f"<b>🟥 EXPULSADO MINUTO {minuto_formateado}</b>\n\n"
                         f"🔴 <b>{equipo_evento}</b>\n\n"
                         f"🏆 {liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ <b>Min {minuto_formateado}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
+                        f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
                     )
                     enviar_mensaje(mensaje)
                     alertas_eventos.add(clave)
 
                 elif es_evento_primer_tiempo(evento):
                     mensaje = (
-                        f"<b>🟥 EXPULSIÓN PRIMER TIEMPO</b>\n\n"
+                        f"<b>🟥 EXPULSADO MINUTO {minuto_formateado}</b>\n\n"
                         f"🔴 <b>{equipo_evento}</b>\n\n"
                         f"🏆 {liga} ({pais}) {bandera}\n"
                         f"{home} vs {away}\n\n"
-                        f"⏱ <b>Min {minuto_formateado}</b> | ⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
+                        f"⚽ <b>Resultado parcial {goles_local}-{goles_visitante}</b>"
                     )
                     enviar_mensaje(mensaje)
                     alertas_eventos.add(clave)
