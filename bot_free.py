@@ -197,9 +197,7 @@ def es_evento_primer_tiempo(evento):
     except (TypeError, ValueError):
         extra = 0
 
-    minuto_real = elapsed + extra
-
-    return elapsed <= 45 or minuto_real <= 50
+    return elapsed < 45 or (elapsed == 45 and extra >= 0)
 
 
 def formato_minuto_evento(evento):
