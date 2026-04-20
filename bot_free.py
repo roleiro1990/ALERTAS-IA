@@ -445,6 +445,11 @@ def revisar_mercados_1t():
         estado_corto = partido.get("fixture", {}).get("status", {}).get("short", "")
         minuto_actual = partido.get("fixture", {}).get("status", {}).get("elapsed", 0) or 0
 
+        print(
+            f"DEBUG PARTIDO 1T | fixture={fixture_id} | {home} vs {away} | "
+            f"liga={liga} ({pais}) | estado={estado_corto} | min={minuto_actual}"
+        )
+
         evaluados += 1
 
         eventos = obtener_eventos(fixture_id)
@@ -476,6 +481,14 @@ def revisar_mercados_1t():
                 f"liga={liga} ({pais}) | estado={estado_corto} | min={minuto_actual} | "
                 f"items_stats={len(estadisticas)}"
             )
+
+        print(
+            f"DEBUG REMATES | fixture={fixture_id} | {home} vs {away} | "
+            f"estado={estado_corto} | remates_home={remates_home} | "
+            f"remates_away={remates_away} | total_remates={total_remates} | "
+            f"stats_items={len(estadisticas)} | liga={liga} ({pais}) | "
+            f"excluida={liga_remates_excluida(liga, pais)}"
+        )
 
         total_corners = max(corners_eventos, corners_stats)
         etiqueta_tiempo = "HT" if estado_corto == "HT" else f"Min {minuto_actual}"
@@ -568,6 +581,11 @@ def revisar_mercados_1t():
 
         if not liga_remates_excluida(liga, pais):
             if remates_home >= 10 or remates_away >= 10:
+                print(
+                    f"DEBUG DISPARA EXCESO REMATES | fixture={fixture_id} | {home} vs {away} | "
+                    f"remates_home={remates_home} | remates_away={remates_away}"
+                )
+
                 clave = f"{fixture_id}-remates-equipo"
                 if clave not in alertas_remates:
                     lineas_ritmo = []
@@ -601,6 +619,11 @@ def revisar_mercados_1t():
                     alertas_remates.add(clave)
 
             if total_remates >= 16:
+                print(
+                    f"DEBUG DISPARA VOLUMEN ALTO | fixture={fixture_id} | {home} vs {away} | "
+                    f"total_remates={total_remates}"
+                )
+
                 clave = f"{fixture_id}-remates-totales-altos"
                 if clave not in alertas_remates_totales_altos:
                     mensaje = (
