@@ -566,7 +566,7 @@ def revisar_mercados_1t():
                     enviar_mensaje(mensaje)
                     alertas_tarjetas_equipo.add(clave)
 
-        if total_corners >= 8:
+        if total_corners >= 7:
             clave = f"{fixture_id}-corners-altos"
             if clave not in alertas_corners:
                 mensaje = (
@@ -580,7 +580,7 @@ def revisar_mercados_1t():
                 alertas_corners.add(clave)
 
         if not liga_remates_excluida(liga, pais):
-            if remates_home >= 10 or remates_away >= 10:
+            if remates_home >= 9 or remates_away >= 9:
                 print(
                     f"DEBUG DISPARA EXCESO REMATES | fixture={fixture_id} | {home} vs {away} | "
                     f"remates_home={remates_home} | remates_away={remates_away}"
@@ -591,7 +591,7 @@ def revisar_mercados_1t():
                     lineas_ritmo = []
                     lineas_estadisticas = []
 
-                    if remates_home >= 10:
+                    if remates_home >= 9:
                         lineas_ritmo.append(
                             f"⏱ <b>{home.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
                         )
@@ -599,7 +599,7 @@ def revisar_mercados_1t():
                             f"🔴 <b>{home.upper()} ya remató {remates_home} veces en el 1T 🔥</b>"
                         )
 
-                    if remates_away >= 10:
+                    if remates_away >= 9:
                         lineas_ritmo.append(
                             f"⏱ <b>{away.upper()} REMATA CADA MENOS DE 5 MINUTOS EN EL 1T</b>"
                         )
@@ -618,7 +618,7 @@ def revisar_mercados_1t():
                     enviar_mensaje(mensaje)
                     alertas_remates.add(clave)
 
-            if total_remates >= 16:
+            if total_remates >= 15:
                 print(
                     f"DEBUG DISPARA VOLUMEN ALTO | fixture={fixture_id} | {home} vs {away} | "
                     f"total_remates={total_remates}"
